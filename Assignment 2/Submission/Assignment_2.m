@@ -15,62 +15,94 @@ function Assignment_2
     subplot(1, 3, 3);
     imshow(img3);
     title('Right Image');
-
-    % Select points for Left <-> Central correspondence
-    disp('Select 4 points between the Left and Central images');
-    subplot(1, 3, 1);
-    [x1, y1] = ginput(4);
-    subplot(1, 3, 2);
-    [x2, y2] = ginput(4);
-    points_left = [x1, y1];
-    points_central = [x2, y2];
-
+ 
     % Compute homography H_left_to_central
-    H_left_to_central = computeHomography(points_left, points_central);
-    disp('Homography matrix H_left_to_central:');
-    disp(H_left_to_central);
-
-    % Select points for Central <-> Right correspondence
-    disp('Select 4 points between the Central and Right images');
-    subplot(1, 3, 2);
-    [x3, y3] = ginput(4);
-    subplot(1, 3, 3);
-    [x4, y4] = ginput(4);
-    points_central_2 = [x3, y3];
-    points_right = [x4, y4];
+    H_1_2 = computeHomography(img1, img2);
+    
+    % Join the two images using geokor
+    %img_left_central = geokor(H_1_2, img1, img2);
+    % Display the joined image
+    %figure;
+    %imshow(img_left_central);
+    %title('Joined image of Left and Central images');
 
     % Compute homography H_central_to_right
-    H_central_to_right = computeHomography(points_central_2, points_right);
-    disp('Homography matrix H_central_to_right:');
-    disp(H_central_to_right);
+    H_2_3 = computeHomography(img2, img3);
+    
+    % Join the images again
+    %img_central_right = geokor(H_2_3, img2, img3);
+    % Display the final joined image (Central and Right images)
+    %figure;
+    %imshow(img_central_right);
+    %title('Joined image of Central and Right images');
 end
 
-function H = computeHomography(points1, points2)
-    % Compute the homography matrix from points1 to points2 using SVD
-    % Input:
-    %   - points1: Nx2 matrix of (x, y) coordinates in the first image
-    %   - points2: Nx2 matrix of (x, y) coordinates in the second image
-    % Output:
-    %   - H: 3x3 homography matrix
+function H = computeHomography(imag_a, imag_b)
+    figure('Name', 'Image Correspondence', 'NumberTitle', 'off');
+    subplot(1, 2, 1);
+    imshow(imag_a);
+    title('First Image');
+    subplot(1, 2, 2);
+    imshow(imag_b);
+    title('Second Image');
 
-    n = size(points1, 1);  % Number of points
-    A = [];
+    % Select 4 points in the first image (imag_a)
+    disp('Select 4 points between the two images');
+    subplot(1, 2, 1);
+    [x1, y1] = ginput(4);  % points in the first image
+    subplot(1, 2, 2);
+    [x2, y2] = ginput(4);  % points in the second image
 
-    for i = 1:n
-        x = points1(i, 1);
-        y = points1(i, 2);
-        x_prime = points2(i, 1);
-        y_prime = points2(i, 2);
+    % Storing the points
+    points_a = [x1, y1]; 
+    points_b = [x2, y2];
 
-        % Construct matrix A for the equation A * h = 0
-        A = [A;
-             -x, -y, -1,  0,  0,  0, x * x_prime, y * x_prime, x_prime;
-              0,  0,  0, -x, -y, -1, x * y_prime, y * y_prime, y_prime];
-    end
+    % Calculate centroids and translate points
+    t_a = mean(points_a);
+    t_b = mean(points_b);
+    Xa = points_a - t_a;  % Shift points to centroid
+    Xb = points_b - t_b;
 
-    % Perform SVD on A
-    [~, ~, V] = svd(A);
+    % Scaling factor
+    Sa = mean(abs(Xa));
+    Sb = mean(abs(Xb));
 
-    % Homography is the last column of V reshaped as a 3x3 matrix
-    H = reshape(V(:, end), 3, 3)';
+    % Create transformation matrices for normalization
+    T_a = [1/Sa(1), 0, 0; 0, 1/Sa(2), 0; 0, 0, 1] * [1, 0, -t_a(1); 0, 1, -t_a(2); 0, 0, 1];
+    T_b = [1/Sb(1), 0, 0; 0, 1/Sb(2), 0; 0, 0, 1] * [1, 0, -t_b(1); 0, 1, -t_b(2); 0, 0, 1];
+
+    % Homogeneous coordinates
+    points_a_hom = [Xa, ones(4,1)];  % Convert to homogeneous coordinates
+    points_b_hom = [Xb, ones(4,1)];  % Convert to homogeneous coordinates
+
+    % Apply the transformations
+    a = T_a * points_a_hom(1, :)'; 
+    b = T_a * points_a_hom(2, :)'; 
+    c = T_a * points_a_hom(3, :)'; 
+    d = T_a * points_a_hom(4, :)';
+    
+    a1 = T_b * points_b_hom(1, :)'; 
+    b1 = T_b * points_b_hom(2, :)'; 
+    c1 = T_b * points_b_hom(3, :)'; 
+    d1 = T_b * points_b_hom(4, :)';
+
+    A = zeros(4,1);
+    Z = zeros(1,3);
+
+    % Create the design matrix components
+    A1 = [-a1(3)*a', Z, a1(1)*a'; Z, -a1(3)*a', a1(2)*a' ];
+    A2 = [-b1(3)*b', Z, b1(1)*b'; Z, -b1(3)*b', b1(2)*b' ];
+    A3 = [-c1(3)*c', Z, c1(1)*c'; Z, -c1(3)*c', c1(2)*c' ];
+    A4 = [-d1(3)*d', Z, d1(1)*d'; Z, -d1(3)*d', d1(2)*d' ];
+    % Combine the matrices into a final design matrix
+    A = [A1; A2; A3; A4];
+    % Singular Value Decomposition
+    [U, D, V] = svd(A);
+
+    % Homography for conditioned coordinates (using the last column of V)
+    H1 = reshape(V(:, end), 3, 3);
+
+    % Transformation matrix for original coordinates
+    H = inv(T_b) * H1 * T_a;
 end
+
