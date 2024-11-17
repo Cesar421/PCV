@@ -1,4 +1,5 @@
 function Assignment_2
+
     % Load images
     img1 = imread('1_left.jpg');
     img2 = imread('2_central.jpg');
@@ -19,22 +20,22 @@ function Assignment_2
     % Compute homography H_left_to_central
     H_1_2 = computeHomography(img1, img2);
     
-    % Join the two images using geokor
-    %img_left_central = geokor(H_1_2, img1, img2);
-    % Display the joined image
-    %figure;
-    %imshow(img_left_central);
-    %title('Joined image of Left and Central images');
+    %Join the two images using geokor
+    img_left_central = geokor_matlab(H_1_2, img1, img2);
+    %Display the joined image
+    figure;
+    imshow(img_left_central);
+    title('Joined image of Left and Central images');
 
     % Compute homography H_central_to_right
-    H_2_3 = computeHomography(img2, img3);
+    H_2_3 = computeHomography(img_left_central, img3);
     
-    % Join the images again
-    %img_central_right = geokor(H_2_3, img2, img3);
-    % Display the final joined image (Central and Right images)
-    %figure;
-    %imshow(img_central_right);
-    %title('Joined image of Central and Right images');
+    %Join the images again
+    img_central_right = geokor_matlab(H_2_3, img_left_central, img3);
+    %Display the final joined image (Central and Right images)
+    figure;
+    imshow(img_central_right);
+    title('Joined image of Central and Right images');
 end
 
 function H = computeHomography(imag_a, imag_b)
@@ -60,31 +61,31 @@ function H = computeHomography(imag_a, imag_b)
     % Calculate centroids and translate points
     t_a = mean(points_a);
     t_b = mean(points_b);
-    Xa = points_a - t_a;  % Shift points to centroid
-    Xb = points_b - t_b;
+    points_a = -points_a + t_a;  % Shift points to centroid
+    points_b = -points_b + t_b;
 
     % Scaling factor
-    Sa = mean(abs(Xa));
-    Sb = mean(abs(Xb));
+    Sa = mean(abs(points_a));
+    Sb = mean(abs(points_b));
 
     % Create transformation matrices for normalization
-    T_a = [1/Sa(1), 0, 0; 0, 1/Sa(2), 0; 0, 0, 1] * [1, 0, -t_a(1); 0, 1, -t_a(2); 0, 0, 1];
-    T_b = [1/Sb(1), 0, 0; 0, 1/Sb(2), 0; 0, 0, 1] * [1, 0, -t_b(1); 0, 1, -t_b(2); 0, 0, 1];
+    T_a = [1/Sa(1,1), 0, 0; 0, 1/Sa(1,2), 0; 0, 0, 1] * [1, 0, -t_a(1,1); 0, 1, -t_a(1,2); 0, 0, 1];
+    T_b = [1/Sb(1,1), 0, 0; 0, 1/Sb(1,2), 0; 0, 0, 1] * [1, 0, -t_b(1,1); 0, 1, -t_b(1,2); 0, 0, 1];
 
     % Homogeneous coordinates
-    points_a_hom = [Xa, ones(4,1)];  % Convert to homogeneous coordinates
-    points_b_hom = [Xb, ones(4,1)];  % Convert to homogeneous coordinates
+    points_a = [points_a, ones(4,1)];  % Convert to homogeneous coordinates
+    points_b = [points_b, ones(4,1)];  % Convert to homogeneous coordinates
 
     % Apply the transformations
-    a = T_a * points_a_hom(1, :)'; 
-    b = T_a * points_a_hom(2, :)'; 
-    c = T_a * points_a_hom(3, :)'; 
-    d = T_a * points_a_hom(4, :)';
+    a = T_a * points_a(1, :)'; 
+    b = T_a * points_a(2, :)'; 
+    c = T_a * points_a(3, :)'; 
+    d = T_a * points_a(4, :)';
     
-    a1 = T_b * points_b_hom(1, :)'; 
-    b1 = T_b * points_b_hom(2, :)'; 
-    c1 = T_b * points_b_hom(3, :)'; 
-    d1 = T_b * points_b_hom(4, :)';
+    a1 = T_b * points_b(1, :)'; 
+    b1 = T_b * points_b(2, :)'; 
+    c1 = T_b * points_b(3, :)'; 
+    d1 = T_b * points_b(4, :)';
 
     A = zeros(4,1);
     Z = zeros(1,3);
