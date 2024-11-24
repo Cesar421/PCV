@@ -1,0 +1,18 @@
+function Assignment_3
+
+close all;
+clc;
+%Introducing object coordinates
+X = [28.5, 60, 0, 1; 
+    36, 45, 0, 1; 
+    0, 40, 33, 1; 
+    0, 51, 49, 1; 
+    45, 0, 34, 1; 
+    31, 0, 52, 1];
+
+Image = imread("Calibration.jpg");
+figure, imshow(Image);
+% Need to select points in the image
+  [x y] = ginput(6);
+  x=[x y]
+end
