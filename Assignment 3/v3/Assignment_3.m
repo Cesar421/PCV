@@ -53,9 +53,7 @@ P = P / P(3, 4);
 disp('Projection Matrix P:');
 disp(P)
 
-
-
-%% Scale P to ensure P(3,4) = 1
+% Scale P to ensure P(3,4) = 1
 P = P / P(3, 4);
 
 % 1. Extract M (3x3) from P

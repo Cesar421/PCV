@@ -2,7 +2,7 @@
 
 %% Step 1: Load and Display the Image
 % Load the calibration object image
-img = imread('Object1.JPG'); % Replace with your image file name
+img = imread('a1.jpg'); % Replace with your image file name
 imshow(img);
 title('Calibration Object');
 pause; % Pause to allow visualization

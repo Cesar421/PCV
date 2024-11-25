@@ -1,12 +1,12 @@
 % CAMERA CALIBRATION USING DIRECT LINEAR TRANSFORMATION (DLT)
 
-%% Step 1: Load and Display the Image
-img = imread('Object3.JPG'); % Replace with your image file name
+% Step 1: Load and Display the Image
+img = imread('a1.jpg'); % Replace with your image file name 
 imshow(img);
 title('Calibration Object');
 pause; % Pause to allow viewing
 
-%% Step 2: Manual Selection of Image Points
+% Step 2: Manual Selection of Image Points
 % Prompt the user to select corresponding points manually
 disp('Click on the image to select calibration points (at least 6 points).');
 [x, y] = ginput(6); % Adjust the number of points based on your setup
@@ -16,20 +16,21 @@ plot(x, y, 'r+', 'MarkerSize', 10); % Visualize selected points
 disp('Selected Image Points:');
 disp(image_points);
 
-%% Step 3: Define Object Points
+% Step 3: Define Object Points
 % Define 3D object points in the calibration object's coordinate system
 object_points = [
-    0, 0, 0;  % Bottom-left corner
-    1, 0, 0;  % Bottom-right corner
-    0, 1, 0;  % Top-left corner
-    1, 1, 0;  % Top-right corner
-    0, 0, 1;  % Top-left corner of the back face
-    1, 1, 1;  % Top-right corner of the back face
+    100, 200, 0;  % Bottom-left corner
+    300, 200, 0;  % Bottom-right corner
+    300, 0, 200;  % Top-left corner
+    100, 0, 200;  % Top-right corner
+    0, 200, 200;  % Top-left corner of the back face
+    0, 200, 100;  % Top-right corner of the back face
 ];
+
 disp('Object Points:');
 disp(object_points);
 
-%% Step 4: Compute the Projection Matrix using DLT
+% Step 4: Compute the Projection Matrix using DLT
 function P = computeDLT(object_points, image_points)
     num_points = size(object_points, 1);
     A = zeros(2 * num_points, 12);
@@ -52,7 +53,7 @@ P = computeDLT(object_points, image_points);
 disp('Projection Matrix (P):');
 disp(P);
 
-%% Step 5: Decompose the Projection Matrix
+% Step 5: Decompose the Projection Matrix
 function [K, R, C] = decomposeProjectionMatrix(P)
     % Decompose the projection matrix into K (intrinsic), R (rotation), and C (camera center)
     M = P(:, 1:3);
@@ -82,7 +83,7 @@ disp(R);
 disp('Camera Center (C):');
 disp(C);
 
-%% Step 6: Compute Reprojection Errors
+% Step 6: Compute Reprojection Errors
 function residuals = computeResiduals(P, object_points, image_points)
     num_points = size(object_points, 1);
     residuals = zeros(num_points, 1);
@@ -100,7 +101,7 @@ residuals = computeResiduals(P, object_points, image_points);
 disp('Reprojection Residuals:');
 disp(residuals);
 
-%% Step 7: Visualize Reprojected Points
+% Step 7: Visualize Reprojected Points
 % Reproject points
 num_points = size(object_points, 1);
 reprojected_points = zeros(num_points, 2);
