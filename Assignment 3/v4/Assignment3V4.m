@@ -1,4 +1,6 @@
 % Camera Calibration using Direct Linear Transformation (DLT)
+clc;
+clear all;
 
 %% Step 1: Load and Display Image
 img = imread('Object3.JPG'); % Replace with your calibration image file
@@ -84,7 +86,41 @@ disp(R);
 disp('Camera Center (C):');
 disp(C);
 
-%% Step 6: Compute Reprojection Errors
+%% Step 6: Calculate Rotation Angles (omega, phi, kappa)
+% Rotation angles from the rotation matrix R
+omega = atan2(R(3,2), R(3,3)); % Roll angle (omega)
+phi = atan2(-R(3,1), sqrt(R(3,2)^2 + R(3,3)^2)); % Pitch angle (phi)
+kappa = atan2(R(2,1), R(1,1)); % Yaw angle (kappa)
+
+% Convert to degrees
+omega_deg = omega * 180 / pi;
+phi_deg = phi * 180 / pi;
+kappa_deg = kappa * 180 / pi;
+
+disp('Rotation Angles (degrees):');
+disp(['Omega (Roll): ', num2str(omega_deg)]);
+disp(['Phi (Pitch): ', num2str(phi_deg)]);
+disp(['Kappa (Yaw): ', num2str(kappa_deg)]);
+
+%% Step 7: Extract and Display Intrinsic Parameters from K
+% Principal distance (focal length) a_x
+a_x = K(1, 1);
+% Skew factor s
+s = K(1, 2);
+% Principal point (x_0, y_0)
+x_0 = K(1, 3);
+y_0 = K(2, 3);
+% Aspect ratio a_y / a_x
+aspect_ratio = K(2, 2) / K(1, 1);
+
+% Display results
+disp('Intrinsic Parameters:');
+disp(['Principal Distance (a_x): ', num2str(a_x)]);
+disp(['Skew Factor (s): ', num2str(s)]);
+disp(['Principal Point (x_0, y_0): (', num2str(x_0), ', ', num2str(y_0), ')']);
+disp(['Aspect Ratio (a_y / a_x): ', num2str(aspect_ratio)]);
+
+%% Step 8: Compute Reprojection Errors
 function residuals = computeResiduals(P, object_points, image_points)
     num_points = size(object_points, 1);
     residuals = zeros(num_points, 1);
@@ -100,7 +136,7 @@ residuals = computeResiduals(P, object_points, image_points);
 disp('Reprojection Residuals:');
 disp(residuals);
 
-%% Step 7: Visualize Original vs Reprojected Points
+%% Step 9: Visualize Original vs Reprojected Points
 % Reproject points
 num_points = size(object_points, 1);
 reprojected_points = zeros(num_points, 2);
