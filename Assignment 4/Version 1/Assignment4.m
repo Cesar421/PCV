@@ -6,7 +6,6 @@ clear all;
 % Importing the images into mathlab
 f = imread("image1.jpg");
 g = imread("image2.jpg");
-
 %Selecting points on the images
 figure(1), imshow(f);
 [Image1X,Image1Y] = ginput(8);
@@ -21,30 +20,22 @@ plot(Image2X,Image2Y);
 Euc = ones(8, 1);
 Image1 = [Image1X, Image1Y, Euc];
 Image2 = [Image2X, Image2Y, Euc];
-
 %Computing the midpoint for all 3 Images
-
 t1 = [mean(Image1X), mean(Image1Y)]; % Midpoint for Image 1
 disp("The midpoint for Image 1 is:");
 disp(t1);
-
 t2 = [mean(Image2X), mean(Image2Y)]; % Midpoint for Image 2
 disp("The midpoint for Image 2 is:");
 disp(t2);
 
-
 % Making the midpoint as origin for the 3 Images and computing Translated
 % corrdinate
-
 X1_T = (Image1X - t1(1,1));
 Y1_T = (Image1Y - t1(1,2));
 Image1Translated = [X1_T, Y1_T]; % Translated points for Image 1
-
-
 X2_T = (Image2X - t2(1,1));
 Y2_T = (Image2Y - t2(1,2));
 Image2Translated = [X2_T, Y2_T]; % Translated points for Image 2
-
 
 % Computing the absolute average of the translated points defined as
 % SCALING
