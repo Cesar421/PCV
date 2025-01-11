@@ -50,17 +50,29 @@ end
 %______________PART 1 METHODS__________________________________________
 
 function [ImageCoordinate1, ImageCoordinate2] = GetImageCordinates()
-
-fh = fopen("bh.dat","r");
-A = fscanf(fh, '%f%f%f%f', [4 inf]);
-fclose(fh);
-ImageCoordinate1 = A(1:2, :);
-ImageCoordinate2 = A(3:4, :);
-ImageCoordinate1(3,:) = 1;
-ImageCoordinate2(3,:) = 1;
+    % Open the file "bh.dat" for reading
+    fh = fopen("bh.dat", "r");
+    
+    % Read the data from the file into matrix A (4 rows, N columns)
+    A = fscanf(fh, '%f%f%f%f', [4 inf]);
+    
+    % Close the file after reading
+    fclose(fh);
+    
+    % Extract the first two rows of A as ImageCoordinate1 (coordinates from the first image)
+    ImageCoordinate1 = A(1:2, :);
+    
+    % Extract the last two rows of A as ImageCoordinate2 (coordinates from the second image)
+    ImageCoordinate2 = A(3:4, :);
+    
+    % Set the third row of both ImageCoordinate1 and ImageCoordinate2 to 1 for homogeneous coordinates
+    ImageCoordinate1(3, :) = 1;
+    ImageCoordinate2(3, :) = 1;
 end
 
 function fMatrix = GetFundamentalMatrix(ImageCoordinate1, ImageCoordinate2)
+    % Function to compute the fundamental matrix (to be implemented)
+
 
 %Performing translation, scaling and conditioning
 
@@ -101,14 +113,17 @@ for i = 1:size(Image1Conditioned,2)
     
 end
 
-%Applying SVD
+% Perform Singular Value Decomposition (SVD) on matrix A
 [U, D, V] = svd(A);
 
+% Reshape the last column of V into a 3x3 matrix and transpose it
 H = reshape(V(:,end), 3, 3)';
 
-fMatrix = Image2TransformationMatrix' * H * Image1TransformationMatrix; %Computing the reverse conditioning
+% Compute the fundamental matrix by applying reverse conditioning
+fMatrix = Image2TransformationMatrix' * H * Image1TransformationMatrix; 
 
-fMatrix = fMatrix(:,:)/fMatrix(end,end);  %Normalizing
+% Normalize the fundamental matrix by dividing by its last element
+fMatrix = fMatrix(:,:)/fMatrix(end,end);  
 end
 
 function FundamentalMatrix = SingularityConstraint(fMatrix)
@@ -121,12 +136,15 @@ if det(fMatrix) == 0
 
 else
 
+    % Perform Singular Value Decomposition (SVD) on the fundamental matrix
     [U, D, V] = svd(fMatrix);
     
-    % replacing the last diagonal element of D with 0
-
+    % Set the last diagonal element of D to zero to enforce the singularity constraint
     D(end, end) = 0;
+    % Reconstruct the fundamental matrix by multiplying U, D, and V'
     FundamentalMatrix = U * D * V';
+
+    % Display the computed fundamental matrix
     disp("The Fundamental matrix is:");
     disp(FundamentalMatrix);
 end 
@@ -182,17 +200,19 @@ for i = 1:size(ImageCoordinate1, 2)
     end
 end
 
-
+ % Create a new figure window for plotting
 function PlotObjectPoint(ObjectPoints)
-
+    % Scatter plot for 3D object points with filled markers
 figure; scatter3(ObjectPoints(1,:), ObjectPoints(2,:), ObjectPoints(3,:), 10, "filled");
-axis square; view(32, 75);
+axis square; view(32, 75); % Set axis to square for equal scaling in all dimensions
 
 end
 
 
 
 %________________PART 2 METHODS__________
+
+
 function [X1, X2, X3] = ReadControlPoint()
 fh = fopen("pp.dat","r");
 A = fscanf(fh, '%f%f%f%f', [7 inf]);
@@ -239,43 +259,53 @@ disp(Image2TransformationMatrix);
 Image1Conditioned = [Image1Translated(1,:)*Image1TransformationMatrix(1,1); Image1Translated(2,:)*Image1TransformationMatrix(2,2); Image1Translated(3,:)*Image1TransformationMatrix(3,3)];
 Image2Conditioned = [Image2Translated(1,:)*Image2TransformationMatrix(1,1); Image2Translated(2,:)*Image2TransformationMatrix(2,2); Image2Translated(3,:)*Image2TransformationMatrix(3,3)];
 
-%Formulating the Design Matrix
+% Formulate the design matrix A for the homography computation
 
 A = [];
 
-for i = 1:size(Image1Conditioned,2)
+% Loop through each point in the conditioned image points
+for i = 1:size(Image1Conditioned, 2)
     
-    A = [A; -Image1Conditioned(1, i), -Image1Conditioned(2, i), -Image1Conditioned(3, i), -1, zeros(1, 4), zeros(1,4), Image1Conditioned(1,i)*Image2Conditioned(1, i), Image1Conditioned(2,i)*Image2Conditioned(1, i), Image1Conditioned(3,i)*Image2Conditioned(1, i), Image2Conditioned(1, i);
-        zeros(1,4), -Image1Conditioned(1, i), -Image1Conditioned(2, i), -Image1Conditioned(3, i), -1, zeros(1,4), Image1Conditioned(1,i)*Image2Conditioned(2, i), Image1Conditioned(2,i)*Image2Conditioned(2, i), Image1Conditioned(3,i)*Image2Conditioned(2, i), Image2Conditioned(2, i);
-        zeros(1,4), zeros(1,4), -Image1Conditioned(1, i), -Image1Conditioned(2, i), -Image1Conditioned(3, i), -1, Image1Conditioned(1,i)*Image2Conditioned(3, i), Image1Conditioned(2,i)*Image2Conditioned(3, i), Image1Conditioned(3,i)*Image2Conditioned(3, i), Image2Conditioned(3, i)];
+    % Append a row to A based on the point correspondences
+    % Each row represents an equation derived from the homography constraints
+    
+    A = [A; 
+        -Image1Conditioned(1, i), -Image1Conditioned(2, i), -Image1Conditioned(3, i), -1, zeros(1, 4), zeros(1, 4), Image1Conditioned(1, i) * Image2Conditioned(1, i), Image1Conditioned(2, i) * Image2Conditioned(1, i), Image1Conditioned(3, i) * Image2Conditioned(1, i), Image2Conditioned(1, i);
+        zeros(1, 4), -Image1Conditioned(1, i), -Image1Conditioned(2, i), -Image1Conditioned(3, i), -1, zeros(1, 4), Image1Conditioned(1, i) * Image2Conditioned(2, i), Image1Conditioned(2, i) * Image2Conditioned(2, i), Image1Conditioned(3, i) * Image2Conditioned(2, i), Image2Conditioned(2, i);
+        zeros(1, 4), zeros(1, 4), -Image1Conditioned(1, i), -Image1Conditioned(2, i), -Image1Conditioned(3, i), -1, Image1Conditioned(1, i) * Image2Conditioned(3, i), Image1Conditioned(2, i) * Image2Conditioned(3, i), Image1Conditioned(3, i) * Image2Conditioned(3, i), Image2Conditioned(3, i)];
 end
+
+% Display the final design matrix A
 disp(A);
 
 
+
 %Applying SVD
-[U, D, V] = svd(A);
-disp(V);
+[U, D, V] = svd(A); % Perform Singular Value Decomposition (SVD) on matrix A
+disp(V);% Display the matrix V from the SVD decomposition
 
-H = reshape(V(:,end), 4, 4)';
+H = reshape(V(:,end), 4, 4)';% Reshape the last column of V into a 4x4 matrix and transpose it
 
-
+% Compute the homography matrix by applying reverse conditioning
 Homography = inv(Image2TransformationMatrix) * H * Image1TransformationMatrix; %Computing the reverse conditioning
 
 Homography = Homography(:,:)/Homography(end,end);  %Normalizing
+% Display the computed 3D homography matrix
 disp("The 3D Homography Matrix is:");
 disp(Homography);
 end
 
 
 function EuclideanObjectPoints = GetEuclieanObjectPoint(Homography, ObjectPoint)
+    % Initialize an empty array to store the Euclidean object points
+    EuclideanObjectPoints = [];
 
-EuclideanObjectPoints = [];
+    % Apply the homography transformation to the object points
+    Points = Homography * ObjectPoint;
 
-Points = Homography*ObjectPoint;
-
-for i = 1:size(ObjectPoint, 2)
-
-    EuclideanObjectPoints = [EuclideanObjectPoints, Points(:, i)./Points(4,i)];
+    % Loop through each column of the ObjectPoint matrix (each point)
+    for i = 1:size(ObjectPoint, 2)
+        % Normalize the point by dividing by the 4th element (homogeneous coordinate)
+        EuclideanObjectPoints = [EuclideanObjectPoints, Points(:, i)./Points(4,i)];
+    end
 end
-end
-
