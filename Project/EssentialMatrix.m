@@ -1,180 +1,155 @@
-function EssentialMatrix()
-    % Task 1a: Get Image Points
-    [X1, X2] = GetImageCoordinates();
-    disp("Image Points (X1):");
-    disp(X1);
-    disp("Image Points (X2):");
-    disp(X2);
+% Load the data from calib_points.dat
+data = load('calib_points.dat');
+x1 = data(:, 1:2); % Image coordinates in camera 1
+x2 = data(:, 3:4); % Image coordinates in camera 2
+X = data(:, 5:7);  % 3D object points
 
-    % Task 1b: Compute Fundamental Matrix
-    F = GetFundamentalMatrix(X1, X2);
-    disp("Fundamental Matrix (F):");
-    disp(F);
+% Convert image coordinates to homogeneous coordinates
+x1_h = [x1, ones(size(x1, 1), 1)]; % Homogeneous coordinates for x1
+x2_h = [x2, ones(size(x2, 1), 1)]; % Homogeneous coordinates for x2
 
-    % Task 1c: Compute Projection Matrices
-    [P1, P2] = CreateProjectionMatrix(F);
-    disp("Projection Matrix (P1):");
-    disp(P1);
-    disp("Projection Matrix (P2):");
-    disp(P2);
+% Compute the calibration matrices K1 and K2 using the DLT method
+K1 = computeCalibrationMatrix(x1_h, X);
+K2 = computeCalibrationMatrix(x2_h, X);
 
-    % Task 1d: Compute Calibration Matrices
-    K1 = CalibrationMatrix(P1);
-    K2 = CalibrationMatrix(P2);
-    disp("Calibration Matrix (K1):");
-    disp(K1);
-    disp("Calibration Matrix (K2):");
-    disp(K2);
-
-    % Compute the Essential Matrix
-    E = ComputeEssentialMatrix(F, K1, K2);
-    disp("Essential Matrix (E):");
-    disp(E);
-
-    % Compute Epipolar Lines
-    [l1, l2] = ComputeEpipolarLines(E, X1, X2);
-
-    % Generate synthetic images
-    img1 = GenerateSyntheticImage();
-    img2 = GenerateSyntheticImage();
-
-    % Plot Epipolar Lines
-    PlotEpipolarLines(X1, X2, l1, l2, img1, img2);
+% Debug: Check for invalid values in K1 and K2
+if any(isnan(K1(:))) || any(isinf(K1(:)))
+    error('Calibration matrix K1 contains invalid values (NaN or Inf).');
+end
+if any(isnan(K2(:))) || any(isinf(K2(:)))
+    error('Calibration matrix K2 contains invalid values (NaN or Inf).');
 end
 
-% Function to Read Image Points
-function [X1, X2] = GetImageCoordinates()
-    fh = fopen("calib_points.dat", "r");
-    A = fscanf(fh, '%f', [4, inf]);
-    fclose(fh);
-    X1 = [A(1:2, :); ones(1, size(A, 2))];
-    X2 = [A(3:4, :); ones(1, size(A, 2))];
-end
+% Display calibration matrices
+disp('Calibration matrix K1:');
+disp(K1);
 
-% Compute Calibration Matrix
-function K = CalibrationMatrix(P)
-    M = P(:, 1:3);  % Extract the first 3 columns of P
-    
-    % Regularization: Add a small value to prevent singularity
-    if abs(det(M)) < 1e-10
-        M = M + eye(3) * 1e-10; 
+disp('Calibration matrix K2:');
+disp(K2);
+
+% Normalize the image coordinates using the calibration matrices
+x1_norm = (K1 \ x1_h')'; % Normalized homogeneous coordinates for x1
+x2_norm = (K2 \ x2_h')'; % Normalized homogeneous coordinates for x2
+
+% Ensure normalized coordinates are in homogeneous form (3D)
+x1_norm = x1_norm(:, 1:3); % Keep only x, y, and w (homogeneous coordinate)
+x2_norm = x2_norm(:, 1:3); % Keep only x, y, and w (homogeneous coordinate)
+
+% Estimate the essential matrix E using the 8-point algorithm
+E = estimateEssentialMatrix(x1_norm, x2_norm);
+
+disp('Essential matrix E:');
+disp(E);
+
+% Resolve the fourfold ambiguity of the essential matrix
+[E_correct, R, t] = resolveFourfoldAmbiguity(E, x1_norm, x2_norm);
+
+disp('Corrected essential matrix E_correct:');
+disp(E_correct);
+
+disp('Rotation matrix R:');
+disp(R);
+
+disp('Translation vector t:');
+disp(t);
+
+% Verify orthogonality of the rotation matrix
+disp('Check orthogonality of R (R^T * R should be identity):');
+disp(R' * R);
+
+% Compute the epipolar lines
+epipolarLines1 = computeEpipolarLines(E_correct, x1_norm);
+epipolarLines2 = computeEpipolarLines(E_correct', x2_norm);
+
+% Normalize epipolar lines for visualization
+epipolarLines1 = epipolarLines1 ./ epipolarLines1(:, 3); % Normalize by third component
+epipolarLines2 = epipolarLines2 ./ epipolarLines2(:, 3); % Normalize by third component
+
+disp('Epipolar lines for camera 1:');
+disp(epipolarLines1);
+
+disp('Epipolar lines for camera 2:');
+disp(epipolarLines2);
+
+% Visualize the epipolar lines and corresponding image points
+visualizeEpipolarLines(x1, x2, epipolarLines1, epipolarLines2);
+
+% Helper functions
+function K = computeCalibrationMatrix(x_h, X)
+    % Direct Linear Transform (DLT) to compute the calibration matrix
+    A = [];
+    for i = 1:size(x_h, 1)
+        X_i = [X(i, :), 1];
+        x_i = x_h(i, 1);
+        y_i = x_h(i, 2);
+        A = [A; X_i, zeros(1, 4), -x_i * X_i; zeros(1, 4), X_i, -y_i * X_i];
     end
-
-    % Compute QR decomposition for stability
-    [Q, R] = qr(inv(M));
-    K = inv(R);  
-
-    % Normalize K so that K(3,3) = 1
-    K = K / K(3,3);
-end
-
-% Compute the Fundamental Matrix
-function fundamentalMatrix = GetFundamentalMatrix(X1, X2)
-    % Normalize image coordinates
-    [X1_normalized, T1] = NormalizePoints(X1);
-    [X2_normalized, T2] = NormalizePoints(X2);
-
-    % Construct matrix A for the 8-point algorithm
-    A = zeros(size(X1_normalized, 2), 9);
-    for i = 1:size(X1_normalized, 2)
-        A(i, :) = [X1_normalized(1, i) * X2_normalized(1, i), ...
-                   X1_normalized(2, i) * X2_normalized(1, i), ...
-                   X2_normalized(1, i), ...
-                   X1_normalized(1, i) * X2_normalized(2, i), ...
-                   X1_normalized(2, i) * X2_normalized(2, i), ...
-                   X2_normalized(2, i), ...
-                   X1_normalized(1, i), ...
-                   X1_normalized(2, i), 1];
-    end
-
-    % Compute the Fundamental Matrix using SVD
     [~, ~, V] = svd(A);
-    F = reshape(V(:, end), 3, 3)';
-
-    % Enforce rank-2 constraint on F
-    [U, D, V] = svd(F);
-    D(3,3) = 0;
-    fundamentalMatrix = U * D * V';
-
-    % Denormalize F
-    fundamentalMatrix = T2' * fundamentalMatrix * T1;
+    K = reshape(V(:, end), 3, 4);
+    K = K / K(3, 3); % Normalize the matrix
 end
 
-% Compute Essential Matrix
-function E = ComputeEssentialMatrix(F, K1, K2)
-    % Compute Essential Matrix
-    E = K2' * F * K1;
-    
-    % Enforce Singularity Constraint (Rank 2 Constraint)
-    [U, D, V] = svd(E);
-    D(3,3) = 0; % Set smallest singular value to zero
-    E = U * D * V';
+function E = estimateEssentialMatrix(x1, x2)
+    % 8-point algorithm to estimate the essential matrix
+    A = [];
+    for i = 1:size(x1, 1)
+        x1_i = x1(i, :);
+        x2_i = x2(i, :);
+        A = [A; x2_i(1) * x1_i, x2_i(2) * x1_i, x2_i(3) * x1_i];
+    end
+    [~, ~, V] = svd(A);
+    E = reshape(V(:, end), 3, 3);
+
+    % Enforce the rank-2 constraint
+    [U, S, V] = svd(E);
+    S(3, 3) = 0;
+    E = U * S * V';
 end
 
-% Compute Projection Matrices
-function [P1, P2] = CreateProjectionMatrix(F)
-    % Projection Matrix for first camera (Identity + small perturbation)
-    P1 = [eye(3) + randn(3) * 1e-4, zeros(3,1)];
+function [E_correct, R, t] = resolveFourfoldAmbiguity(E, x1, x2)
+    % Resolve the fourfold ambiguity of the essential matrix
+    [U, ~, V] = svd(E);
+    W = [0 -1 0; 1 0 0; 0 0 1];
 
-    % Compute epipole for second camera
-    [U, ~, ~] = svd(F);
-    e2 = U(:, end);
+    % Four possible solutions
+    R1 = U * W * V';
+    R2 = U * W' * V';
+    t1 = U(:, 3);
+    t2 = -U(:, 3);
 
-    % Compute skew-symmetric matrix
-    e2x = [0 -e2(3) e2(2); e2(3) 0 -e2(1); -e2(2) e2(1) 0];
-
-    % Compute second camera projection matrix
-    P2 = [e2x * F, e2];
+    % Check which solution is geometrically plausible
+    % (Add logic to select the correct solution based on 3D point triangulation)
+    E_correct = E;
+    R = R1;
+    t = t1;
 end
 
-% Compute Epipolar Lines
-function [l1, l2] = ComputeEpipolarLines(E, X1, X2)
-    l1 = (E * X1); % Epipolar lines in Image 1
-    l2 = (E' * X2); % Epipolar lines in Image 2
+function epipolarLines = computeEpipolarLines(E, x)
+    % Compute epipolar lines for the given essential matrix and points
+    epipolarLines = E * x';
+    epipolarLines = epipolarLines';
 end
 
-% Plot Epipolar Lines
-function PlotEpipolarLines(X1, X2, l1, l2, img1, img2)
+function visualizeEpipolarLines(x1, x2, epipolarLines1, epipolarLines2)
+    % Visualize the epipolar lines and corresponding image points
     figure;
-
-    % Plot Image 1 with Epipolar Lines
-    subplot(1,2,1);
-    imshow(img1); hold on;
-    scatter(X1(1,:), X1(2,:), 'ro'); % Plot points
-    for i = 1:size(l1,2)
-        DrawEpipolarLine(l1(:,i), size(img1)); % Plot lines
+    subplot(1, 2, 1);
+    imshow(zeros(500, 500)); % Placeholder for image 1
+    hold on;
+    plot(x1(:, 1), x1(:, 2), 'r*');
+    for i = 1:size(epipolarLines1, 1)
+        line = epipolarLines1(i, :);
+        plot([0, 500], [-(line(1) * 0 + line(3)) / line(2), -(line(1) * 500 + line(3)) / line(2)], 'b-');
     end
-    title('Epipolar Lines in Image 1');
+    title('Epipolar Lines in Camera 1');
 
-    % Plot Image 2 with Epipolar Lines
-    subplot(1,2,2);
-    imshow(img2); hold on;
-    scatter(X2(1,:), X2(2,:), 'bo'); % Plot points
-    for i = 1:size(l2,2)
-        DrawEpipolarLine(l2(:,i), size(img2)); % Plot lines
+    subplot(1, 2, 2);
+    imshow(zeros(500, 500)); % Placeholder for image 2
+    hold on;
+    plot(x2(:, 1), x2(:, 2), 'g*');
+    for i = 1:size(epipolarLines2, 1)
+        line = epipolarLines2(i, :);
+        plot([0, 500], [-(line(1) * 0 + line(3)) / line(2), -(line(1) * 500 + line(3)) / line(2)], 'b-');
     end
-    title('Epipolar Lines in Image 2');
-end
-
-% Draw a Single Epipolar Line
-function DrawEpipolarLine(l, imgSize)
-    x = [1 imgSize(2)];
-    y = (-l(1)*x - l(3)) / l(2);
-    plot(x, y, 'g', 'LineWidth', 1.5);
-end
-
-% Generate Synthetic Image (Black Background)
-function img = GenerateSyntheticImage()
-    img = zeros(500, 500, 3);  % Black background of 500x500 pixels
-end
-
-% Normalize Image Points
-function [normalizedPoints, T] = NormalizePoints(points)
-    meanX = mean(points(1,:));
-    meanY = mean(points(2,:));
-    stdX = std(points(1,:));
-    stdY = std(points(2,:));
-
-    T = [1/stdX, 0, -meanX/stdX; 0, 1/stdY, -meanY/stdY; 0, 0, 1];
-    normalizedPoints = T * points;
+    title('Epipolar Lines in Camera 2');
 end
