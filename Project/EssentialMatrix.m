@@ -1,4 +1,8 @@
+
+%Final project
+
 % Load the data from calib_points.dat
+
 data = load('calib_points.dat');
 x1 = data(:, 1:2); % Image coordinates in camera 1
 x2 = data(:, 3:4); % Image coordinates in camera 2
